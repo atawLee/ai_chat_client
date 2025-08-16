@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/chat_provider.dart';
 import '../models/chat_models.dart';
 
 class ChatRoomScreen extends StatefulWidget {
@@ -15,6 +13,7 @@ class ChatRoomScreen extends StatefulWidget {
 class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final List<ChatMessage> _messages = [];
 
   @override
   Widget build(BuildContext context) {
@@ -24,15 +23,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () async {
-            final chatProvider = Provider.of<ChatProvider>(
-              context,
-              listen: false,
-            );
-            await chatProvider.leaveRoom();
-            if (mounted) {
-              Navigator.of(context).pop();
-            }
+          onPressed: () {
+            Navigator.of(context).pop();
           },
         ),
       ),
@@ -40,42 +32,25 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         children: [
           // 채팅 메시지 목록
           Expanded(
-            child: Consumer<ChatProvider>(
-              builder: (context, chatProvider, child) {
-                // 새 메시지가 추가되면 스크롤을 하단으로 이동
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (_scrollController.hasClients) {
-                    _scrollController.animateTo(
-                      _scrollController.position.maxScrollExtent,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                    );
-                  }
-                });
-
-                if (chatProvider.messages.isEmpty) {
-                  return const Center(
+            child: _messages.isEmpty
+                ? const Center(
                     child: Text(
                       '아직 메시지가 없습니다.\n첫 번째 메시지를 보내보세요!',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 16, color: Colors.grey),
                     ),
-                  );
-                }
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(8),
-                  itemCount: chatProvider.messages.length,
-                  itemBuilder: (context, index) {
-                    final message = chatProvider.messages[index];
-                    final isMyMessage =
-                        message.userName == chatProvider.nickname;
-                    return _buildMessageBubble(message, isMyMessage);
-                  },
-                );
-              },
-            ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(8),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      final isMyMessage =
+                          message.userName == '나'; // 임시로 '나'로 설정
+                      return _buildMessageBubble(message, isMyMessage);
+                    },
+                  ),
           ),
           // 메시지 입력 영역
           Container(
@@ -211,10 +186,31 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     final message = _messageController.text.trim();
     if (message.isEmpty) return;
 
-    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
-    await chatProvider.sendMessage(message);
+    // 더미 메시지를 리스트에 추가
+    final newMessage = ChatMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      roomId: widget.room.id,
+      userName: '나',
+      message: message,
+      timestamp: DateTime.now(),
+    );
+
+    setState(() {
+      _messages.add(newMessage);
+    });
 
     _messageController.clear();
+
+    // 스크롤을 맨 아래로 이동
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override

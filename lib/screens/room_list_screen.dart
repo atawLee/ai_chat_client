@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../providers/chat_provider.dart';
 import '../models/chat_models.dart';
 import 'chat_room_screen.dart';
 import 'nickname_screen.dart';
@@ -14,12 +12,30 @@ class RoomListScreen extends StatefulWidget {
 }
 
 class _RoomListScreenState extends State<RoomListScreen> {
+  String? _nickname;
+  List<ChatRoom> _rooms = [];
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final chatProvider = Provider.of<ChatProvider>(context, listen: false);
-      chatProvider.loadRooms();
+    _loadUserData();
+    _loadDummyRooms();
+  }
+
+  Future<void> _loadUserData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _nickname = prefs.getString('nickname');
+    });
+  }
+
+  void _loadDummyRooms() {
+    setState(() {
+      _rooms = [
+        ChatRoom(id: '1', name: '일반 채팅', userCount: 5),
+        ChatRoom(id: '2', name: '게임 이야기', userCount: 3),
+        ChatRoom(id: '3', name: '개발자 모임', userCount: 8),
+      ];
     });
   }
 
@@ -33,11 +49,7 @@ class _RoomListScreenState extends State<RoomListScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              final chatProvider = Provider.of<ChatProvider>(
-                context,
-                listen: false,
-              );
-              chatProvider.loadRooms();
+              _loadDummyRooms();
             },
           ),
           PopupMenuButton(
@@ -61,76 +73,57 @@ class _RoomListScreenState extends State<RoomListScreen> {
           ),
         ],
       ),
-      body: Consumer<ChatProvider>(
-        builder: (context, chatProvider, child) {
-          if (!chatProvider.isConnected) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('서버에 연결 중...'),
-                ],
+      body: Column(
+        children: [
+          if (_nickname != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.withOpacity(0.1),
               ),
-            );
-          }
-
-          if (chatProvider.rooms.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    '사용 가능한 채팅방이 없습니다.',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                ],
+              child: Text(
+                '환영합니다, $_nickname님!',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
-            );
-          }
-
-          return Column(
-            children: [
-              if (chatProvider.nickname != null)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple.withOpacity(0.1),
-                  ),
-                  child: Text(
-                    '환영합니다, ${chatProvider.nickname}님!',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+            ),
+          Expanded(
+            child: _rooms.isEmpty
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          size: 64,
+                          color: Colors.grey,
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          '사용 가능한 채팅방이 없습니다.',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                      ],
                     ),
-                    textAlign: TextAlign.center,
+                  )
+                : ListView.builder(
+                    itemCount: _rooms.length,
+                    itemBuilder: (context, index) {
+                      final room = _rooms[index];
+                      return _buildRoomCard(context, room);
+                    },
                   ),
-                ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: chatProvider.rooms.length,
-                  itemBuilder: (context, index) {
-                    final room = chatProvider.rooms[index];
-                    return _buildRoomCard(context, room, chatProvider);
-                  },
-                ),
-              ),
-            ],
-          );
-        },
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildRoomCard(
-    BuildContext context,
-    ChatRoom room,
-    ChatProvider chatProvider,
-  ) {
+  Widget _buildRoomCard(BuildContext context, ChatRoom room) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ListTile(
@@ -150,39 +143,20 @@ class _RoomListScreenState extends State<RoomListScreen> {
         ),
         subtitle: Text('참여자: ${room.userCount}명'),
         trailing: const Icon(Icons.arrow_forward_ios),
-        onTap: () => _joinRoom(context, room, chatProvider),
+        onTap: () => _joinRoom(context, room),
       ),
     );
   }
 
-  Future<void> _joinRoom(
-    BuildContext context,
-    ChatRoom room,
-    ChatProvider chatProvider,
-  ) async {
-    try {
-      await chatProvider.joinRoom(room.id);
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => ChatRoomScreen(room: room)),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('방 입장 실패: $e')));
-      }
-    }
+  Future<void> _joinRoom(BuildContext context, ChatRoom room) async {
+    // 서버 연결 없이 바로 채팅방으로 이동
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => ChatRoomScreen(room: room)));
   }
 
   Future<void> _logout() async {
-    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
-
-    // SignalR 연결 해제
-    await chatProvider.disconnect();
-
-    // 저장된 닉네임 삭제
+    // 저장된 닉네임과 서버 URL 삭제
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove('nickname');
     await prefs.remove('serverUrl');
