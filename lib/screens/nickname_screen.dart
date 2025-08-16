@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../provider/global.dart';
 import 'room_list_screen.dart';
 
-class NicknameScreen extends StatefulWidget {
+class NicknameScreen extends ConsumerStatefulWidget {
   const NicknameScreen({super.key});
 
   @override
-  State<NicknameScreen> createState() => _NicknameScreenState();
+  ConsumerState<NicknameScreen> createState() => _NicknameScreenState();
 }
 
-class _NicknameScreenState extends State<NicknameScreen> {
+class _NicknameScreenState extends ConsumerState<NicknameScreen> {
   final TextEditingController _nicknameController = TextEditingController();
   final TextEditingController _serverUrlController = TextEditingController();
   bool _isLoading = false;
@@ -23,6 +25,7 @@ class _NicknameScreenState extends State<NicknameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 이제 여기서 ref.read() 또는 ref.watch()를 사용할 수 있습니다
     return Scaffold(
       appBar: AppBar(
         title: const Text('AI Chat'),
@@ -111,15 +114,21 @@ class _NicknameScreenState extends State<NicknameScreen> {
     });
 
     try {
+      // ApiSetting에 서버 URL 설정
+      final apiSetting = ref.read(apiProvider);
+      apiSetting.defaultAddress = serverUrl;
+
       // 닉네임과 서버 URL 저장
       SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('nickname', nickname);
-      await prefs.setString('serverUrl', serverUrl);
-
-      // 방 목록 화면으로 이동
+      await prefs.setString('serverUrl', serverUrl); // 방 목록 화면으로 이동
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const RoomListScreen()),
+          MaterialPageRoute(
+            builder: (context) {
+              return const RoomListScreen();
+            },
+          ),
         );
       }
     } catch (e) {

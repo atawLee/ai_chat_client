@@ -1,46 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/chat_models.dart';
+import '../provider/global.dart';
+import '../provider/chatroom_provider.dart';
 import 'chat_room_screen.dart';
 import 'nickname_screen.dart';
 
-class RoomListScreen extends StatefulWidget {
+class RoomListScreen extends ConsumerStatefulWidget {
   const RoomListScreen({super.key});
 
   @override
-  State<RoomListScreen> createState() => _RoomListScreenState();
+  ConsumerState<RoomListScreen> createState() => _RoomListScreenState();
 }
 
-class _RoomListScreenState extends State<RoomListScreen> {
-  String? _nickname;
+class _RoomListScreenState extends ConsumerState<RoomListScreen> {
   List<ChatRoom> _rooms = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
-    _loadDummyRooms();
+    _loadChatRooms();
   }
 
-  Future<void> _loadUserData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+  Future<void> _loadChatRooms() async {
     setState(() {
-      _nickname = prefs.getString('nickname');
+      _isLoading = true;
     });
-  }
 
-  void _loadDummyRooms() {
-    setState(() {
-      _rooms = [
-        ChatRoom(id: '1', name: '일반 채팅', userCount: 5),
-        ChatRoom(id: '2', name: '게임 이야기', userCount: 3),
-        ChatRoom(id: '3', name: '개발자 모임', userCount: 8),
-      ];
-    });
+    try {
+      final repository = ref.read(chatRoomRepositoryProvider);
+      final rooms = await repository.getChatRooms();
+      setState(() {
+        _rooms = rooms;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('채팅방 목록을 불러오는데 실패했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // 사용자 닉네임 가져오기
+    final nicknameAsync = ref.watch(userNicknameProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('채팅방 목록'),
@@ -49,7 +65,8 @@ class _RoomListScreenState extends State<RoomListScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              _loadDummyRooms();
+              // 데이터 새로고침
+              _loadChatRooms();
             },
           ),
           PopupMenuButton(
@@ -75,24 +92,35 @@ class _RoomListScreenState extends State<RoomListScreen> {
       ),
       body: Column(
         children: [
-          if (_nickname != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.deepPurple.withOpacity(0.1),
-              ),
-              child: Text(
-                '환영합니다, $_nickname님!',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
+          // 닉네임 표시 - FutureProvider 사용
+          nicknameAsync.when(
+            data: (nickname) {
+              if (nickname != null) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple.withOpacity(0.1),
+                  ),
+                  child: Text(
+                    '환영합니다, $nickname님!',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (error, stack) => const SizedBox.shrink(),
+          ),
           Expanded(
-            child: _rooms.isEmpty
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _rooms.isEmpty
                 ? const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,

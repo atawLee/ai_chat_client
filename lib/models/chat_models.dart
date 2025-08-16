@@ -1,13 +1,13 @@
 class ChatRoom {
-  final String id;
+  final String uid;
   final String name;
   final int userCount;
 
-  ChatRoom({required this.id, required this.name, required this.userCount});
+  ChatRoom({required this.uid, required this.name, required this.userCount});
 
   factory ChatRoom.fromJson(Map<String, dynamic> json) {
     return ChatRoom(
-      id: json['id'],
+      uid: json['uid'],
       name: json['name'],
       userCount: json['userCount'] ?? 0,
     );
