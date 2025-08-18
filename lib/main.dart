@@ -43,15 +43,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     String? nickname = prefs.getString('nickname');
 
     if (mounted) {
-      if (nickname != null && nickname.isNotEmpty) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const RoomListScreen()),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const NicknameScreen()),
-        );
-      }
+      // if (nickname != null && nickname.isNotEmpty) {
+      //   Navigator.of(context).pushReplacement(
+      //     MaterialPageRoute(builder: (context) => const RoomListScreen()),
+      //   );
+      // } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const NicknameScreen()),
+      );
+      // }
     }
   }
 
