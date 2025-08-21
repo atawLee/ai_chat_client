@@ -60,6 +60,21 @@ class ChatClient {
     }
   }
 
+  Future<bool> sendMessage(ChatMessage message) async {
+    if (_connection?.state != HubConnectionState.Connected) {
+      print('SignalR 연결이 되지 않았습니다.');
+      return false;
+    }
+
+    try {
+      await _connection!.invoke('SendMessage', args: [message]);
+      return true;
+    } catch (e) {
+      print('메시지 전송 실패: $e');
+      return false;
+    }
+  }
+
   /// 서버 연결 해제
   Future<void> disconnect() async {
     if (_connection != null) {
