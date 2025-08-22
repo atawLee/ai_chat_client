@@ -67,7 +67,17 @@ class ChatClient {
     }
 
     try {
-      await _connection!.invoke('SendMessage', args: [message]);
+      // C# SendMessageToGroup(string groupName, string user, string message)에 맞게 전달
+      await _connection!.invoke(
+        'SendMessageToGroup',
+        args: [
+          message.roomId, // groupName (chatUid)
+          message.userName, // user
+          message.message, // message
+        ],
+      );
+
+      print('메시지 전송 성공: ${message.userName} - ${message.message}');
       return true;
     } catch (e) {
       print('메시지 전송 실패: $e');

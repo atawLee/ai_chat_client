@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/nickname_screen.dart';
-import 'screens/room_list_screen.dart';
+import 'screens/chat_lobby_screen.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));

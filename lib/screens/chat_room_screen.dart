@@ -148,7 +148,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                       itemBuilder: (context, index) {
                         final message = _messages[index];
                         final isMyMessage =
-                            message.userName == _nickname; // 닉네임으로 판별
+                            message.userName == '나'; // 임시로 '나'로 설정
                         return _buildMessageBubble(message, isMyMessage);
                       },
                     ),
@@ -285,32 +285,48 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   }
 
   Future<void> _sendMessage() async {
-    final message = _messageController.text.trim();
-    if (message.isEmpty) return;
+    final messageText = _messageController.text.trim();
+    if (messageText.isEmpty || _chatClient == null) return;
 
-    // 더미 메시지를 리스트에 추가
+    try {
+      // ChatMessage 객체 생성
+      final message = ChatMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        roomId: widget.room.uid,
+        userName: _nickname,
+        message: messageText,
+        timestamp: DateTime.now(),
+      );
 
-    setState(() {});
+      // 서버로 메시지 전송
+      final success = await _chatClient!.sendMessage(message);
 
-    _messageController.clear();
+      if (success) {
+        print('메시지 전송 성공: $messageText');
+        _messageController.clear();
 
-    // 스크롤을 맨 아래로 이동
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        // 스크롤을 맨 아래로 이동
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      } else {
+        _showError('메시지 전송에 실패했습니다.');
       }
-    });
+    } catch (e) {
+      _showError('메시지 전송 중 오류가 발생했습니다: $e');
+    }
   }
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    _chatClient?.dispose(); // ChatClient 리소스 정리
     super.dispose();
   }
 }

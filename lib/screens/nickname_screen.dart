@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../provider/global.dart';
-import 'room_list_screen.dart';
+import 'chat_lobby_screen.dart';
 
 class NicknameScreen extends ConsumerStatefulWidget {
   const NicknameScreen({super.key});
@@ -127,7 +127,7 @@ class _NicknameScreenState extends ConsumerState<NicknameScreen> {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) {
-              return const RoomListScreen();
+              return const ChatLobbyScreen();
             },
           ),
         );
