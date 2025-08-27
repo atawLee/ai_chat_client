@@ -69,6 +69,19 @@ class ChatClient {
     }
   }
 
+  Future<void> sendAiMessage(ChatMessage message) async {
+    if (_connection?.state != HubConnectionState.Connected) {
+      print('SignalR 연결이 되지 않았습니다.');
+      return;
+    }
+
+    try {
+      await _connection!.invoke('SendMessageToGroup', args: [message.toJson()]);
+    } catch (e) {
+      print('AI 메시지 전송 실패: $e');
+    }
+  }
+
   Future<bool> sendMessage(ChatMessage message) async {
     if (_connection?.state != HubConnectionState.Connected) {
       print('SignalR 연결이 되지 않았습니다.');
@@ -76,9 +89,8 @@ class ChatClient {
     }
 
     try {
-      print(message.toJson());
       await _connection!.invoke('SendMessageToGroup', args: [message.toJson()]);
-      print('메시지 전송 성공: ${message.userName} - ${message.message}');
+
       return true;
     } catch (e) {
       print('메시지 전송 실패: $e');

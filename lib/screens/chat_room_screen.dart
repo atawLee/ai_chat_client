@@ -237,13 +237,14 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                               vertical: 10,
                             ),
                           ),
-                          onSubmitted: (_) => _sendMessage(),
+                          onSubmitted: (_) =>
+                              _isAIRequest ? _sendAiMessage() : _sendMessage(),
                           textInputAction: TextInputAction.send,
                         ),
                       ),
                       const SizedBox(width: 8),
                       FloatingActionButton(
-                        onPressed: _sendMessage,
+                        onPressed: _isAIRequest ? _sendAiMessage : _sendMessage,
                         backgroundColor: _isAIRequest
                             ? Colors.blue
                             : Colors.deepPurple,
@@ -398,6 +399,29 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       } else {
         _showError('메시지 전송에 실패했습니다.');
       }
+    } catch (e) {
+      _showError('메시지 전송 중 오류가 발생했습니다: $e');
+    }
+  }
+
+  Future<void> _sendAiMessage() async {
+    final messageText = _messageController.text.trim();
+    if (messageText.isEmpty || _chatClient == null) return;
+
+    try {
+      // ChatMessage 객체 생성
+      final message = ChatMessage(
+        userName: _nickname,
+        message: messageText,
+        chatUid: widget.room.uid,
+        type: _isAIRequest ? ChatMessageType.ai : ChatMessageType.user,
+        userUid: _userUid,
+      );
+
+      // 서버로 메시지 전송
+      _messageController.clear();
+      setState(() {});
+      await _chatClient!.sendAiMessage(message);
     } catch (e) {
       _showError('메시지 전송 중 오류가 발생했습니다: $e');
     }
