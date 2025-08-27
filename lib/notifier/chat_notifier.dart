@@ -79,11 +79,11 @@ class ChatRoomStateNotifier extends AsyncNotifier<ChatRoomState> {
 
       // 임시로 로컬에 메시지 추가
       final message = ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        roomId: roomId,
         userName: userName,
         message: messageText,
-        timestamp: DateTime.now(),
+        chatUid: roomId,
+        type: ChatMessageType.user,
+        userUid: '',
       );
 
       await chatClient.sendMessage(message);

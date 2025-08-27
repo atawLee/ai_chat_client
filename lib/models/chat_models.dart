@@ -14,28 +14,84 @@ class ChatRoom {
   }
 }
 
+enum ChatMessageType { system, user, ai }
+
 class ChatMessage {
-  final String id;
-  final String roomId;
   final String userName;
   final String message;
-  final DateTime timestamp;
+  final String chatUid;
+  final String userUid;
+  final ChatMessageType type;
 
   ChatMessage({
-    required this.id,
-    required this.roomId,
     required this.userName,
     required this.message,
-    required this.timestamp,
+    required this.chatUid,
+    required this.userUid,
+    required this.type,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    ChatMessageType messageType;
+    switch (json['type']?.toString().toLowerCase()) {
+      case 'system':
+        messageType = ChatMessageType.system;
+        break;
+      case 'user':
+        messageType = ChatMessageType.user;
+        break;
+      case 'ai':
+        messageType = ChatMessageType.ai;
+        break;
+      default:
+        messageType = ChatMessageType.user;
+    }
+
     return ChatMessage(
-      id: json['id'] ?? '',
-      roomId: json['roomId'] ?? '',
       userName: json['userName'] ?? '',
       message: json['message'] ?? '',
-      timestamp: DateTime.tryParse(json['timestamp'] ?? '') ?? DateTime.now(),
+      chatUid: json['chatUid'] ?? '',
+      type: messageType,
+      userUid: json['userUid'] ?? '',
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'userName': userName,
+      'message': message,
+      'chatUid': chatUid,
+      'type': type.index,
+      'userUid': userUid,
+    };
+  }
+}
+
+class JoinMessage {
+  final String userUid;
+  final List<ChatMessage> messages;
+
+  JoinMessage({required this.userUid, required this.messages});
+
+  factory JoinMessage.fromJson(Map<String, dynamic> json) {
+    List<ChatMessage> messageList = [];
+
+    if (json['messages'] != null) {
+      messageList = (json['messages'] as List)
+          .map(
+            (messageJson) =>
+                ChatMessage.fromJson(messageJson as Map<String, dynamic>),
+          )
+          .toList();
+    }
+
+    return JoinMessage(userUid: json['userUid'] ?? '', messages: messageList);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'userUid': userUid,
+      'messages': messages.map((message) => message.toJson()).toList(),
+    };
   }
 }

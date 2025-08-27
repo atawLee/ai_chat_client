@@ -1,5 +1,4 @@
 import 'package:ai_chat/models/chat_models.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:signalr_netcore/signalr_client.dart';
 
 class ChatClient {
@@ -8,6 +7,7 @@ class ChatClient {
 
   // 메시지 수신 콜백
   Function(ChatMessage)? onMessageReceived;
+  Function(JoinMessage)? onJoin;
 
   ChatClient({required String baseUrl}) : _baseUrl = baseUrl;
 
@@ -24,22 +24,31 @@ class ChatClient {
     // ReceiveMessage 핸들러 등록
     _connection!.on('ReceiveMessage', (List<Object?>? arguments) {
       if (arguments != null && arguments.isNotEmpty) {
-        final messageData = arguments[0] as Map<String, dynamic>;
-        final userName = messageData['userName'] as String;
-        final message = messageData['message'] as String;
-        final chatUid = messageData['chatUid'] as String;
-
-        // ChatMessage 객체 생성
-        final chatMessage = ChatMessage(
-          id: '', // 클라이언트에서 생성하는 임시 ID
-          userName: userName,
-          message: message,
-          timestamp: DateTime.now(),
-          roomId: chatUid, // ChatUid를 roomId로 매핑
+        var chatMessage = ChatMessage.fromJson(
+          arguments[0] as Map<String, dynamic>,
         );
 
-        // 등록된 콜백 함수에 ChatMessage 객체 전달
         onMessageReceived?.call(chatMessage);
+      }
+    });
+
+    _connection!.on('JoinMessage', (List<Object?>? arguments) {
+      if (arguments != null && arguments.isNotEmpty) {
+        var joinMessage = JoinMessage.fromJson(
+          arguments[0] as Map<String, dynamic>,
+        );
+
+        onJoin?.call(joinMessage);
+      }
+    });
+
+    _connection!.on('AiMessage', (List<Object?>? arguments) {
+      if (arguments != null && arguments.isNotEmpty) {
+        var aiMessage = ChatMessage.fromJson(
+          arguments[0] as Map<String, dynamic>,
+        );
+
+        onMessageReceived?.call(aiMessage);
       }
     });
   }
@@ -67,16 +76,8 @@ class ChatClient {
     }
 
     try {
-      // C# SendMessageToGroup(string groupName, string user, string message)에 맞게 전달
-      await _connection!.invoke(
-        'SendMessageToGroup',
-        args: [
-          message.roomId, // groupName (chatUid)
-          message.userName, // user
-          message.message, // message
-        ],
-      );
-
+      print(message.toJson());
+      await _connection!.invoke('SendMessageToGroup', args: [message.toJson()]);
       print('메시지 전송 성공: ${message.userName} - ${message.message}');
       return true;
     } catch (e) {
@@ -100,14 +101,14 @@ class ChatClient {
   HubConnectionState? get currentState => _connection?.state;
 
   /// 채팅방 그룹 입장
-  Future<bool> joinGroup(String chatUid) async {
+  Future<bool> joinGroup(String chatUid, userName) async {
     if (_connection?.state != HubConnectionState.Connected) {
       print('SignalR 연결이 되지 않았습니다.');
       return false;
     }
 
     try {
-      await _connection!.invoke('JoinGroup', args: [chatUid]);
+      await _connection!.invoke('JoinGroup', args: [chatUid, userName]);
       print('채팅방 그룹 입장 성공: $chatUid');
       return true;
     } catch (e) {

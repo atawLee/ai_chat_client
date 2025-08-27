@@ -22,6 +22,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   ChatClient? _chatClient;
   bool _isConnecting = false;
   bool _isConnected = false;
+  bool _isAIRequest = false;
   String _nickname = '';
 
   @override
@@ -48,6 +49,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
       // 메시지 수신 콜백 등록
       _chatClient!.onMessageReceived = _onMessageReceived;
+      _chatClient!.onJoin = _onJoin;
 
       await _chatClient!.initialize();
 
@@ -56,7 +58,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
       if (connected) {
         // 채팅방 그룹에 조인
-        bool joined = await _chatClient!.joinGroup(widget.room.uid);
+        bool joined = await _chatClient!.joinGroup(widget.room.uid, _nickname);
 
         setState(() {
           _isConnected = joined;
@@ -90,6 +92,14 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         SnackBar(content: Text(message), backgroundColor: Colors.red),
       );
     }
+  }
+
+  String _userUid = '';
+
+  void _onJoin(JoinMessage joinMessage) {
+    _userUid = joinMessage.userUid;
+    _messages.addAll(joinMessage.messages);
+    setState(() {});
   }
 
   /// 메시지 수신 콜백
@@ -148,47 +158,102 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                       itemBuilder: (context, index) {
                         final message = _messages[index];
                         final isMyMessage =
-                            message.userName == '나'; // 임시로 '나'로 설정
+                            message.userUid == _userUid; // 임시로 '나'로 설정
+                        print(_userUid);
                         return _buildMessageBubble(message, isMyMessage);
                       },
                     ),
             ),
             // 메시지 입력 영역
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
-                border: Border(top: BorderSide(color: Colors.grey[300]!)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.3),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      decoration: InputDecoration(
-                        hintText: '메시지를 입력하세요...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          borderSide: BorderSide.none,
+                  // AI 요청 체크박스
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isAIRequest = !_isAIRequest;
+                      });
+                    },
+                    child: Row(
+                      children: [
+                        Checkbox(
+                          value: _isAIRequest,
+                          onChanged: (bool? value) {
+                            setState(() {
+                              _isAIRequest = value ?? false;
+                            });
+                          },
+                          activeColor: Colors.deepPurple,
                         ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
+                        const Text(
+                          'AI에게 요청하기',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                      onSubmitted: (_) => _sendMessage(),
-                      maxLines: null,
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.smart_toy,
+                          color: _isAIRequest ? Colors.deepPurple : Colors.grey,
+                          size: 20,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  CircleAvatar(
-                    backgroundColor: Colors.deepPurple,
-                    child: IconButton(
-                      icon: const Icon(Icons.send, color: Colors.white),
-                      onPressed: _sendMessage,
-                    ),
+                  const SizedBox(height: 8),
+
+                  // 메시지 입력 필드
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          decoration: InputDecoration(
+                            hintText: _isAIRequest
+                                ? 'AI에게 질문하거나 요청하세요...'
+                                : '메시지를 입력하세요...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(25),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                          ),
+                          onSubmitted: (_) => _sendMessage(),
+                          textInputAction: TextInputAction.send,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FloatingActionButton(
+                        onPressed: _sendMessage,
+                        backgroundColor: _isAIRequest
+                            ? Colors.blue
+                            : Colors.deepPurple,
+                        mini: true,
+                        child: Icon(
+                          _isAIRequest ? Icons.smart_toy : Icons.send,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -200,6 +265,31 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   }
 
   Widget _buildMessageBubble(ChatMessage message, bool isMyMessage) {
+    // 메시지 타입에 따른 색상 설정
+    Color backgroundColor;
+    Color textColor;
+
+    if (isMyMessage) {
+      backgroundColor = Colors.deepPurple;
+      textColor = Colors.white;
+    } else {
+      switch (message.type) {
+        case ChatMessageType.system:
+          backgroundColor = Colors.orange[100]!;
+          textColor = Colors.orange[800]!;
+          break;
+        case ChatMessageType.ai:
+          backgroundColor = Colors.blue[100]!;
+          textColor = Colors.blue[800]!;
+          break;
+        case ChatMessageType.user:
+        default:
+          backgroundColor = Colors.grey[300]!;
+          textColor = Colors.black87;
+          break;
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -225,7 +315,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: isMyMessage ? Colors.deepPurple : Colors.grey[300],
+                color: backgroundColor,
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Column(
@@ -243,19 +333,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                     ),
                   Text(
                     message.message,
-                    style: TextStyle(
-                      color: isMyMessage ? Colors.white : Colors.black87,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(color: textColor, fontSize: 16),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    _formatTime(message.timestamp),
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: isMyMessage ? Colors.white70 : Colors.grey[600],
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -291,11 +371,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     try {
       // ChatMessage 객체 생성
       final message = ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        roomId: widget.room.uid,
         userName: _nickname,
         message: messageText,
-        timestamp: DateTime.now(),
+        chatUid: widget.room.uid,
+        type: _isAIRequest ? ChatMessageType.ai : ChatMessageType.user,
+        userUid: _userUid,
       );
 
       // 서버로 메시지 전송
@@ -327,6 +407,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _chatClient?.dispose();
     super.dispose();
   }
 }

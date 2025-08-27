@@ -20,7 +20,7 @@ class _NicknameScreenState extends ConsumerState<NicknameScreen> {
   void initState() {
     super.initState();
     // 기본 서버 URL 설정
-    _serverUrlController.text = 'http://192.168.50.252:8080';
+    _serverUrlController.text = 'http://192.168.50.119:8080';
     _nicknameController.text = 'test';
   }
 
